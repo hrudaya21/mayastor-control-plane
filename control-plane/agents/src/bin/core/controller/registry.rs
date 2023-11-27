@@ -280,7 +280,6 @@ impl Registry {
     pub(crate) fn create_volume_limit(&self) -> usize {
         self.create_volume_limit
     }
-
     /// Get a reference to the actual state of the nodes.
     pub(crate) fn nodes(&self) -> &NodesMapLocked {
         &self.nodes

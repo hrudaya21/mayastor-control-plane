@@ -1,6 +1,6 @@
 use crate::resources::{
     error::Error, utils, CordonResources, DrainResources, GetResources, LabelResources,
-    ScaleResources, UnCordonResources,
+    ScaleResources, SetResources, UnCordonResources,
 };
 use async_trait::async_trait;
 
@@ -16,6 +16,9 @@ pub enum Operations {
     /// 'Get' resources.
     #[clap(subcommand)]
     Get(GetResources),
+    /// 'Set' resources.
+    #[clap(subcommand)]
+    Set(SetResources),
     /// 'Scale' resources.
     #[clap(subcommand)]
     Scale(ScaleResources),
@@ -87,6 +90,18 @@ pub trait Scale {
     async fn scale(id: &Self::ID, replica_count: u8, output: &utils::OutputFormat) -> PluginResult;
 }
 
+/// Set trait.
+/// To be implemented by resources which support the 'set' operation.
+#[async_trait(?Send)]
+pub trait Set {
+    type ID;
+    async fn set(
+        id: &Self::ID,
+        prop_name: &str,
+        prop_value: &str,
+        output: &utils::OutputFormat,
+    ) -> PluginResult;
+}
 /// Replica topology trait.
 /// To be implemented by resources which support the 'replica-topology' operation
 #[async_trait(?Send)]

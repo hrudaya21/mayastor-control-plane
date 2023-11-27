@@ -1,5 +1,5 @@
 use crate::{
-    operations::{Get, ListExt, PluginResult, RebuildHistory, ReplicaTopology, Scale},
+    operations::{Get, ListExt, PluginResult, RebuildHistory, ReplicaTopology, Scale, Set},
     resources::{
         error::Error,
         utils,
@@ -183,6 +183,41 @@ impl Scale for Volume {
             },
             Err(e) => {
                 return Err(Error::ScaleVolumeError {
+                    id: id.to_string(),
+                    source: e,
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl Set for Volume {
+    type ID = VolumeId;
+    async fn set(
+        id: &Self::ID,
+        prop_name: &str,
+        prop_value: &str,
+        output: &utils::OutputFormat,
+    ) -> PluginResult {
+        match RestClient::client()
+            .volumes_api()
+            .put_volume_prop(id, prop_name, prop_value)
+            .await
+        {
+            Ok(volume) => match output {
+                OutputFormat::Yaml | OutputFormat::Json => {
+                    // Print json or yaml based on output format.
+                    utils::print_table(output, volume.into_body());
+                }
+                OutputFormat::None => {
+                    // In case the output format is not specified, show a success message.
+                    println!("Volume {id} max_snapshots set to {prop_value} successfully 🚀")
+                }
+            },
+            Err(e) => {
+                return Err(Error::ScaleVolumePropertyError {
                     id: id.to_string(),
                     source: e,
                 });

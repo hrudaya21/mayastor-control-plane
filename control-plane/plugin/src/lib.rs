@@ -5,11 +5,12 @@ extern crate lazy_static;
 
 use operations::Label;
 use resources::LabelResources;
+use resources::SetResources;
 
 use crate::{
     operations::{
         Cordoning, Drain, Get, GetBlockDevices, GetSnapshots, List, ListExt, Operations,
-        PluginResult, RebuildHistory, ReplicaTopology, Scale,
+        PluginResult, RebuildHistory, ReplicaTopology, Scale, Set,
     },
     resources::{
         blockdevice, cordon, drain, node, pool, snapshot, volume, CordonResources, DrainResources,
@@ -84,6 +85,7 @@ impl ExecuteOperation for Operations {
         match self {
             Operations::Drain(resource) => resource.execute(cli_args).await,
             Operations::Get(resource) => resource.execute(cli_args).await,
+            Operations::Set(resource) => resource.execute(cli_args).await,
             Operations::Scale(resource) => resource.execute(cli_args).await,
             Operations::Cordon(resource) => resource.execute(cli_args).await,
             Operations::Uncordon(resource) => resource.execute(cli_args).await,
@@ -175,6 +177,21 @@ impl ExecuteOperation for ScaleResources {
             ScaleResources::Volume { id, replica_count } => {
                 volume::Volume::scale(id, *replica_count, &cli_args.output).await
             }
+        }
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl ExecuteOperation for SetResources {
+    type Args = CliArgs;
+    type Error = crate::resources::Error;
+    async fn execute(&self, cli_args: &CliArgs) -> PluginResult {
+        match self {
+            SetResources::Volume {
+                id,
+                prop_name,
+                prop_value,
+            } => volume::Volume::set(id, prop_name, prop_value, &cli_args.output).await,
         }
     }
 }

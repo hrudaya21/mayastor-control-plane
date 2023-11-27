@@ -187,6 +187,8 @@ pub enum MessageIdVs {
     GetAppNode,
     /// List app nodes.
     ListAppNodes,
+    /// Set volume property.
+    SetVolumeProp,
 }
 
 impl From<MessageIdVs> for MessageId {

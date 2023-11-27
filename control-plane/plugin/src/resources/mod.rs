@@ -57,6 +57,20 @@ pub enum GetResources {
     BlockDevices(BlockDeviceArgs),
 }
 
+/// Resources needed to set the volume property.
+#[derive(clap::Subcommand, Debug)]
+pub enum SetResources {
+    /// Scale volume.
+    Volume {
+        /// ID of the volume.
+        id: VolumeId,
+        /// Volume prop-name.
+        prop_name: String,
+        /// Volume prop-value.
+        prop_value: String,
+    },
+}
+
 /// The types of resources that support the 'scale' operation.
 #[derive(clap::Subcommand, Debug)]
 pub enum ScaleResources {

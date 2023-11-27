@@ -61,6 +61,8 @@ message VolumeSpec {
   optional VolumeContentSource content_source  = 11;
   // Number of snapshots taken on this volume.
   uint32 num_snapshots = 12;
+  // Max snapshots limit per volume.
+  optional uint32 max_snapshots = 13;
 
   // Volume Content Source i.e the snapshot or a volume.
   message VolumeContentSource {
@@ -259,12 +261,14 @@ message CreateVolumeRequest {
   VolumePolicy policy = 6;
   // replica placement topology for the volume creation only
   optional Topology topology = 7;
-  // flag indicating thin provisioning
+  // flag indicating thin provisioningcontrol-plane/grpc/proto/v1/volume/volume.proto
   bool thin = 8;
   // Affinity Group related information.
   optional AffinityGroup affinity_group = 9;
   // maximum total volume size
   optional uint64 cluster_capacity_limit = 10;
+  // Max snapshots limit per volume.
+  optional uint32 max_snapshots = 11;
 }
 
 // Publish a volume on a node
@@ -344,6 +348,16 @@ message SetVolumeReplicaRequest {
   // replica count
   uint32 replicas = 2;
 }
+// Set the volume property.
+message SetVolumePropRequest {
+  // Uuid of the volume.
+  string uuid = 1;
+  // Property name.
+  string prop_name = 2;
+  // Property value.
+  string prop_value = 3;
+}
+
 
 // Delete volume
 message DestroyVolumeRequest {
@@ -419,6 +433,14 @@ message UnpublishVolumeReply {
 
 // Reply type for a SetVolumeReplica request
 message SetVolumeReplicaReply {
+  oneof reply {
+    Volume volume = 1;
+    common.ReplyError error = 2;
+  }
+}
+
+// Reply type for a SetVolumeProperty request
+message SetVolumePropReply {
   oneof reply {
     Volume volume = 1;
     common.ReplyError error = 2;
@@ -593,6 +615,7 @@ service VolumeGrpc {
   rpc ShareVolume (ShareVolumeRequest) returns (ShareVolumeReply) {}
   rpc UnshareVolume (UnshareVolumeRequest) returns (UnshareVolumeReply) {}
   rpc SetVolumeReplica (SetVolumeReplicaRequest) returns (SetVolumeReplicaReply) {}
+  rpc SetVolumeProperty (SetVolumePropRequest) returns (SetVolumePropReply) {}
   rpc Probe (ProbeRequest) returns (ProbeResponse) {}
 
   // Snapshots

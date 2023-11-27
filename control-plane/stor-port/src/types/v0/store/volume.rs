@@ -18,6 +18,16 @@ use crate::{
 use pstor::ApiVersion;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum_macros::{EnumCount as EnumCountMacro, EnumIter, EnumString};
+
+/// Volume properties.
+#[derive(
+    Serialize, Deserialize, EnumString, Debug, EnumCountMacro, EnumIter, PartialEq, Clone, Copy,
+)]
+pub enum VolumeAttr {
+    #[strum(serialize = "max_snapshots")]
+    MaxSnapshots,
+}
 
 /// Key used by the store to uniquely identify a VolumeState structure.
 pub struct VolumeStateKey(VolumeId);
@@ -205,6 +215,9 @@ pub struct VolumeSpec {
     /// Volume metadata information.
     #[serde(default, skip_serializing_if = "super::is_default")]
     pub metadata: VolumeMetadata,
+    /// Max snapshots limit per volume.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_snapshots: Option<u32>,
 }
 
 /// Volume Content Source i.e the snapshot or a volume.
@@ -505,6 +518,13 @@ impl SpecTransaction<VolumeOperation> for VolumeSpec {
                 VolumeOperation::Resize(size) => {
                     self.size = size;
                 }
+                VolumeOperation::SetVolumeProperty(prop) => match prop.prop_name() {
+                    VolumeAttr::MaxSnapshots => {
+                        if let Ok(x) = prop.prop_value().parse::<u32>() {
+                            self.max_snapshots = Some(x);
+                        }
+                    }
+                },
             }
         }
         self.clear_op();
@@ -569,6 +589,7 @@ pub enum VolumeOperation {
     CreateSnapshot(SnapshotId),
     DestroySnapshot(SnapshotId),
     Resize(u64),
+    SetVolumeProperty(VolumeProperty),
 }
 
 #[test]
@@ -630,6 +651,29 @@ impl PublishOperation {
     }
 }
 
+/// SetVolumeProperty Operation parameters.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct VolumeProperty {
+    prop_name: VolumeAttr,
+    prop_value: String,
+}
+impl VolumeProperty {
+    /// Return new `Self` from the given parameters.
+    pub fn new(prop_name: VolumeAttr, prop_value: &String) -> Self {
+        Self {
+            prop_name,
+            prop_value: prop_value.to_string(),
+        }
+    }
+    /// Get property name.
+    pub fn prop_name(&self) -> VolumeAttr {
+        self.prop_name
+    }
+    /// Get property value.
+    pub fn prop_value(&self) -> String {
+        self.prop_value.clone()
+    }
+}
 /// Volume Republish Operation parameters.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RepublishOperation {
@@ -666,6 +710,9 @@ impl From<VolumeOperation> for models::volume_spec_operation::Operation {
             }
             VolumeOperation::DestroySnapshot(_) => {
                 models::volume_spec_operation::Operation::DestroySnapshot
+            }
+            VolumeOperation::SetVolumeProperty(_) => {
+                models::volume_spec_operation::Operation::SetVolumeProperty
             }
             VolumeOperation::Resize(_) => todo!(),
         }
@@ -725,6 +772,7 @@ impl From<&CreateVolume> for VolumeSpec {
             target_config: None,
             publish_context: None,
             affinity_group: request.affinity_group.clone(),
+            max_snapshots: request.max_snapshots,
             ..Default::default()
         }
     }
@@ -781,6 +829,7 @@ impl From<VolumeSpec> for models::VolumeSpec {
             src.affinity_group.into_opt(),
             src.content_source.into_opt(),
             src.num_snapshots,
+            src.max_snapshots,
         )
     }
 }

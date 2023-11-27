@@ -4,7 +4,8 @@ use crate::{
     volume::{
         create_snapshot_reply, create_snapshot_volume_reply, create_volume_reply,
         get_snapshots_reply, get_volumes_reply, publish_volume_reply, republish_volume_reply,
-        resize_volume_reply, set_volume_replica_reply, share_volume_reply, unpublish_volume_reply,
+        resize_volume_reply, set_volume_prop_reply, set_volume_replica_reply, share_volume_reply,
+        unpublish_volume_reply,
         volume_grpc_server::{VolumeGrpc, VolumeGrpcServer},
         CreateSnapshotReply, CreateSnapshotRequest, CreateSnapshotVolumeReply,
         CreateSnapshotVolumeRequest, CreateVolumeReply, CreateVolumeRequest,
@@ -12,9 +13,9 @@ use crate::{
         DestroySnapshotRequest, DestroyVolumeReply, DestroyVolumeRequest, GetSnapshotsReply,
         GetSnapshotsRequest, GetVolumesReply, GetVolumesRequest, ProbeRequest, ProbeResponse,
         PublishVolumeReply, PublishVolumeRequest, RepublishVolumeReply, RepublishVolumeRequest,
-        ResizeVolumeReply, ResizeVolumeRequest, SetVolumeReplicaReply, SetVolumeReplicaRequest,
-        ShareVolumeReply, ShareVolumeRequest, UnpublishVolumeReply, UnpublishVolumeRequest,
-        UnshareVolumeReply, UnshareVolumeRequest,
+        ResizeVolumeReply, ResizeVolumeRequest, SetVolumePropReply, SetVolumePropRequest,
+        SetVolumeReplicaReply, SetVolumeReplicaRequest, ShareVolumeReply, ShareVolumeRequest,
+        UnpublishVolumeReply, UnpublishVolumeRequest, UnshareVolumeReply, UnshareVolumeRequest,
     },
 };
 use std::{convert::TryFrom, sync::Arc};
@@ -212,6 +213,20 @@ impl VolumeGrpc for VolumeServer {
             })),
             Err(err) => Ok(Response::new(SetVolumeReplicaReply {
                 reply: Some(set_volume_replica_reply::Reply::Error(err.into())),
+            })),
+        }
+    }
+    async fn set_volume_property(
+        &self,
+        request: tonic::Request<SetVolumePropRequest>,
+    ) -> Result<tonic::Response<SetVolumePropReply>, tonic::Status> {
+        let req = request.into_inner().validated()?;
+        match self.service.set_volume_property(&req, None).await {
+            Ok(volume) => Ok(Response::new(SetVolumePropReply {
+                reply: Some(set_volume_prop_reply::Reply::Volume(volume.into())),
+            })),
+            Err(err) => Ok(Response::new(SetVolumePropReply {
+                reply: Some(set_volume_prop_reply::Reply::Error(err.into())),
             })),
         }
     }

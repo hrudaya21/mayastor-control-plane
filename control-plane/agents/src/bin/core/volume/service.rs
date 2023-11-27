@@ -4,8 +4,8 @@ use crate::{
         resources::{
             operations::{
                 ResourceCloning, ResourceLifecycle, ResourceLifecycleWithLifetime,
-                ResourcePublishing, ResourceReplicas, ResourceResize, ResourceSharing,
-                ResourceShutdownOperations, ResourceSnapshotting,
+                ResourceProperties, ResourcePublishing, ResourceReplicas, ResourceResize,
+                ResourceSharing, ResourceShutdownOperations, ResourceSnapshotting,
             },
             operations_helper::{OperationSequenceGuard, ResourceSpecsLocked},
             OperationGuardArc,
@@ -21,9 +21,9 @@ use grpc::{
             CreateSnapshotVolumeInfo, CreateVolumeInfo, CreateVolumeSnapshot,
             CreateVolumeSnapshotInfo, DestroyShutdownTargetsInfo, DestroyVolumeInfo,
             DestroyVolumeSnapshot, DestroyVolumeSnapshotInfo, PublishVolumeInfo,
-            RepublishVolumeInfo, ResizeVolumeInfo, SetVolumeReplicaInfo, ShareVolumeInfo,
-            UnpublishVolumeInfo, UnshareVolumeInfo, VolumeOperations, VolumeSnapshot,
-            VolumeSnapshots,
+            RepublishVolumeInfo, ResizeVolumeInfo, SetVolumePropInfo, SetVolumeReplicaInfo,
+            ShareVolumeInfo, UnpublishVolumeInfo, UnshareVolumeInfo, VolumeOperations,
+            VolumeSnapshot, VolumeSnapshots,
         },
         Pagination,
     },
@@ -37,8 +37,8 @@ use stor_port::{
         },
         transport::{
             CreateSnapshotVolume, CreateVolume, DestroyShutdownTargets, DestroyVolume, Filter,
-            PublishVolume, RepublishVolume, ResizeVolume, SetVolumeReplica, ShareVolume,
-            UnpublishVolume, UnshareVolume, Volume,
+            PublishVolume, RepublishVolume, ResizeVolume, SetVolumeProp, SetVolumeReplica,
+            ShareVolume, UnpublishVolume, UnshareVolume, Volume,
         },
     },
 };
@@ -161,6 +161,18 @@ impl VolumeOperations for Service {
         Ok(volume)
     }
 
+    async fn set_volume_property(
+        &self,
+        req: &dyn SetVolumePropInfo,
+        _ctx: Option<Context>,
+    ) -> Result<Volume, ReplyError> {
+        let set_volume_prop = req.into();
+        let service = self.clone();
+        let volume =
+            Context::spawn(async move { service.set_volume_property(&set_volume_prop).await })
+                .await??;
+        Ok(volume)
+    }
     async fn probe(&self, _ctx: Option<Context>) -> Result<bool, ReplyError> {
         return Ok(true);
     }
@@ -291,7 +303,6 @@ impl Service {
             }
             filter => return Err(SvcError::InvalidFilter { filter }),
         };
-
         Ok(Volumes {
             entries: filtered_volumes,
             next_token: match last_result {
@@ -403,6 +414,16 @@ impl Service {
         volume.set_replica(&self.registry, request).await?;
         self.registry.volume(&request.uuid).await
     }
+    /// Set volume property.
+    #[tracing::instrument(level = "info", skip(self), err, fields(volume.uuid = %request.uuid))]
+    pub(super) async fn set_volume_property(
+        &self,
+        request: &SetVolumeProp,
+    ) -> Result<Volume, SvcError> {
+        let mut volume = self.specs().volume(&request.uuid).await?;
+        volume.set_property(&self.registry, request).await?;
+        self.registry.volume(&request.uuid).await
+    }
 
     /// Create a volume snapshot.
     #[tracing::instrument(level = "info", skip(self), err, fields(volume.uuid = %request.source_id, snapshot.source_uuid = %request.source_id, snapshot.uuid = %request.snap_id))]
@@ -426,6 +447,16 @@ impl Service {
             }
             Err(error) => Err(error),
         }?;
+
+        if let Some(max_snapshots) = volume.as_ref().max_snapshots {
+            if volume.as_ref().metadata.num_snapshots() as u32 >= max_snapshots {
+                return Err(SvcError::SnapshotMaxLimit {
+                    max_snapshots,
+                    volume_id: volume.as_ref().uuid.to_string(),
+                });
+            }
+        }
+
         let snapshot = volume
             .create_snap(
                 &self.registry,

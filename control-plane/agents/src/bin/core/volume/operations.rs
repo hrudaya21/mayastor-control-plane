@@ -5,8 +5,8 @@ use crate::{
         resources::{
             operations::{
                 ResourceLifecycle, ResourceLifecycleExt, ResourceLifecycleWithLifetime,
-                ResourceOwnerUpdate, ResourcePublishing, ResourceReplicas, ResourceResize,
-                ResourceSharing, ResourceShutdownOperations,
+                ResourceOwnerUpdate, ResourceProperties, ResourcePublishing, ResourceReplicas,
+                ResourceResize, ResourceSharing, ResourceShutdownOperations,
             },
             operations_helper::{
                 GuardedOperationsHelper, OnCreateFail, OperationSequenceGuard, ResourceSpecsLocked,
@@ -26,18 +26,24 @@ use crate::{
     },
 };
 use agents::errors::SvcError;
+use std::str::FromStr;
+
+// use grpc::operations::volume::traits::CreateVolumeInfo;
 use stor_port::{
     transport_api::ErrorChain,
     types::v0::{
         store::{
             nexus_persistence::NexusInfoKey,
             replica::ReplicaSpec,
-            volume::{PublishOperation, RepublishOperation, VolumeOperation, VolumeSpec},
+            volume::{
+                PublishOperation, RepublishOperation, VolumeAttr, VolumeOperation, VolumeProperty,
+                VolumeSpec,
+            },
         },
         transport::{
             CreateVolume, DestroyNexus, DestroyReplica, DestroyShutdownTargets, DestroyVolume,
             Protocol, PublishVolume, Replica, ReplicaId, ReplicaOwners, RepublishVolume,
-            ResizeVolume, SetVolumeReplica, ShareNexus, ShareVolume, ShutdownNexus,
+            ResizeVolume, SetVolumeProp, SetVolumeReplica, ShareNexus, ShareVolume, ShutdownNexus,
             UnpublishVolume, UnshareNexus, UnshareVolume, Volume,
         },
     },
@@ -639,6 +645,34 @@ impl ResourceReplicas for OperationGuardArc<VolumeSpec> {
 }
 
 #[async_trait::async_trait]
+impl ResourceProperties for OperationGuardArc<VolumeSpec> {
+    type Request = SetVolumeProp;
+
+    async fn set_property(
+        &mut self,
+        registry: &Registry,
+        request: &Self::Request,
+    ) -> Result<(), SvcError> {
+        let state = registry.volume_state(&request.uuid).await?;
+        let operation = match VolumeAttr::from_str(&request.prop_name) {
+            Ok(VolumeAttr::MaxSnapshots) => VolumeOperation::SetVolumeProperty(
+                VolumeProperty::new(VolumeAttr::MaxSnapshots, &request.prop_value),
+            ),
+            _ => {
+                return Err(SvcError::InvalidSetProperty {
+                    property_name: request.prop_name.clone(),
+                    id: state.uuid.to_string(),
+                });
+            }
+        };
+
+        let spec_clone = self.start_update(registry, &state, operation).await?;
+
+        self.complete_update(registry, Ok(()), spec_clone).await?;
+        Ok(())
+    }
+}
+#[async_trait::async_trait]
 impl ResourceShutdownOperations for OperationGuardArc<VolumeSpec> {
     type RemoveShutdownTargets = DestroyShutdownTargets;
     type Shutdown = ();
@@ -811,14 +845,13 @@ impl ResourceLifecycleExt<CreateVolumeSource<'_>> for OperationGuardArc<VolumeSp
         request_src: &CreateVolumeSource,
     ) -> Result<Self::CreateOutput, SvcError> {
         request_src.pre_flight_check()?;
-        let request = request_src.source();
-
+        let request = request_src.source().clone();
         let specs = registry.specs();
         let mut volume = specs
             .get_or_create_volume(request_src)?
             .operation_guard_wait()
             .await?;
-        let volume_clone = volume.start_create_update(registry, request).await?;
+        let volume_clone = volume.start_create_update(registry, &request).await?;
 
         // If the volume is a part of the ag, create or update accordingly.
         registry.specs().get_or_create_affinity_group(&volume_clone);

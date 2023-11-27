@@ -376,6 +376,19 @@ pub enum SvcError {
         cluster_capacity_limit: u64,
         excess: u64,
     },
+    #[snafu(display("All replicas are not healthy for volume '{}'", id))]
+    AllReplicaNotHealthy { id: String },
+    #[snafu(display(
+        "Reached maximum snapshots limit {} for volume {}, delete unused snapshots to continue",
+        max_snapshots,
+        volume_id
+    ))]
+    SnapshotMaxLimit {
+        max_snapshots: u32,
+        volume_id: String,
+    },
+    #[snafu(display("Invalid property name '{}' for the volume '{}'", property_name, id))]
+    InvalidSetProperty { property_name: String, id: String },
 }
 
 impl SvcError {
@@ -1014,6 +1027,24 @@ impl From<SvcError> for ReplyError {
             },
             SvcError::CapacityLimitExceeded { .. } => ReplyError {
                 kind: ReplyErrorKind::CapacityLimitExceeded,
+                resource: ResourceKind::Volume,
+                source,
+                extra,
+            },
+            SvcError::AllReplicaNotHealthy { .. } => ReplyError {
+                kind: ReplyErrorKind::FailedPrecondition,
+                resource: ResourceKind::VolumeSnapshot,
+                source,
+                extra,
+            },
+            SvcError::SnapshotMaxLimit { .. } => ReplyError {
+                kind: ReplyErrorKind::FailedPrecondition,
+                resource: ResourceKind::Volume,
+                source,
+                extra,
+            },
+            SvcError::InvalidSetProperty { .. } => ReplyError {
+                kind: ReplyErrorKind::FailedPrecondition,
                 resource: ResourceKind::Volume,
                 source,
                 extra,

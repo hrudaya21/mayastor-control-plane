@@ -6,9 +6,9 @@ use crate::{
             traits::{
                 CreateSnapshotVolumeInfo, CreateVolumeInfo, CreateVolumeSnapshotInfo,
                 DestroyShutdownTargetsInfo, DestroyVolumeInfo, PublishVolumeInfo,
-                RepublishVolumeInfo, ResizeVolumeInfo, SetVolumeReplicaInfo, ShareVolumeInfo,
-                UnpublishVolumeInfo, UnshareVolumeInfo, VolumeOperations, VolumeSnapshot,
-                VolumeSnapshots,
+                RepublishVolumeInfo, ResizeVolumeInfo, SetVolumePropInfo, SetVolumeReplicaInfo,
+                ShareVolumeInfo, UnpublishVolumeInfo, UnshareVolumeInfo, VolumeOperations,
+                VolumeSnapshot, VolumeSnapshots,
             },
             traits_snapshots::DestroyVolumeSnapshotInfo,
         },
@@ -17,7 +17,7 @@ use crate::{
     volume::{
         create_snapshot_reply, create_snapshot_volume_reply, create_volume_reply,
         get_snapshots_reply, get_snapshots_request, get_volumes_reply, get_volumes_request,
-        publish_volume_reply, republish_volume_reply, resize_volume_reply,
+        publish_volume_reply, republish_volume_reply, resize_volume_reply, set_volume_prop_reply,
         set_volume_replica_reply, share_volume_reply, unpublish_volume_reply,
         volume_grpc_client::VolumeGrpcClient, GetSnapshotsRequest, GetVolumesRequest, ProbeRequest,
     },
@@ -230,6 +230,28 @@ impl VolumeOperations for VolumeClient {
             Some(set_volume_replica_reply) => match set_volume_replica_reply {
                 set_volume_replica_reply::Reply::Volume(volume) => Ok(Volume::try_from(volume)?),
                 set_volume_replica_reply::Reply::Error(err) => Err(err.into()),
+            },
+            None => Err(ReplyError::invalid_response(ResourceKind::Volume)),
+        }
+    }
+
+    #[tracing::instrument(
+        name = "VolumeClient::set_volume_property",
+        level = "debug",
+        skip(self),
+        err
+    )]
+    async fn set_volume_property(
+        &self,
+        request: &dyn SetVolumePropInfo,
+        ctx: Option<Context>,
+    ) -> Result<Volume, ReplyError> {
+        let req = self.request(request, ctx, MessageIdVs::SetVolumeProp);
+        let response = self.client().set_volume_property(req).await?.into_inner();
+        match response.reply {
+            Some(set_volume_prop_reply) => match set_volume_prop_reply {
+                set_volume_prop_reply::Reply::Volume(volume) => Ok(Volume::try_from(volume)?),
+                set_volume_prop_reply::Reply::Error(err) => Err(err.into()),
             },
             None => Err(ReplyError::invalid_response(ResourceKind::Volume)),
         }

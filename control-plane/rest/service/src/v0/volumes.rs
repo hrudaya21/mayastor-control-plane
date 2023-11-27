@@ -8,7 +8,7 @@ use stor_port::types::v0::{
     transport::{
         DestroyShutdownTargets, DestroyVolume, Filter, GetRebuildRecord, PublishVolume,
         RebuildHistory, RebuildJobState, RebuildRecord, RepublishVolume, ResizeVolume,
-        SetVolumeReplica, ShareVolume, UnpublishVolume, UnshareVolume, Volume,
+        SetVolumeProp, SetVolumeReplica, ShareVolume, UnpublishVolume, UnshareVolume, Volume,
     },
 };
 
@@ -169,6 +169,22 @@ impl apis::actix_server::Volumes for RestApi {
                 &SetVolumeReplica {
                     uuid: volume_id.into(),
                     replicas: replica_count,
+                },
+                None,
+            )
+            .await?;
+        Ok(volume.into())
+    }
+
+    async fn put_volume_prop(
+        Path((volume_id, prop_name, prop_value)): Path<(Uuid, String, String)>,
+    ) -> Result<models::Volume, RestError<RestJsonError>> {
+        let volume = client()
+            .set_volume_property(
+                &SetVolumeProp {
+                    uuid: volume_id.into(),
+                    prop_name,
+                    prop_value,
                 },
                 None,
             )

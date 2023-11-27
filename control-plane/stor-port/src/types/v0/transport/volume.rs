@@ -457,6 +457,8 @@ pub struct CreateVolume {
     pub affinity_group: Option<AffinityGroup>,
     /// Maximum total system volume size.
     pub cluster_capacity_limit: Option<u64>,
+    /// Max Snapshots to limit per volume.
+    pub max_snapshots: Option<u32>,
 }
 
 /// Resize volume request.
@@ -701,6 +703,27 @@ impl SetVolumeReplica {
     }
 }
 
+/// Set the volume property.
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetVolumeProp {
+    /// The uuid of the volume.
+    pub uuid: VolumeId,
+    /// Property name.
+    pub prop_name: String,
+    /// Property value.
+    pub prop_value: String,
+}
+impl SetVolumeProp {
+    /// Create new `Self` based on the provided arguments.
+    pub fn new(uuid: VolumeId, prop_name: String, prop_value: String) -> Self {
+        Self {
+            uuid,
+            prop_name,
+            prop_value,
+        }
+    }
+}
 /// Delete volume request.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
