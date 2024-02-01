@@ -25,6 +25,7 @@ use strum_macros::{EnumCount as EnumCountMacro, EnumIter, EnumString};
     Serialize, Deserialize, EnumString, Debug, EnumCountMacro, EnumIter, PartialEq, Clone, Copy,
 )]
 pub enum VolumeAttr {
+    /// Max number of snapshots allowed per volume.
     #[strum(serialize = "max_snapshots")]
     MaxSnapshots,
 }

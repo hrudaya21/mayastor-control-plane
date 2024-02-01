@@ -261,7 +261,7 @@ message CreateVolumeRequest {
   VolumePolicy policy = 6;
   // replica placement topology for the volume creation only
   optional Topology topology = 7;
-  // flag indicating thin provisioningcontrol-plane/grpc/proto/v1/volume/volume.proto
+  // flag indicating thin provisioning
   bool thin = 8;
   // Affinity Group related information.
   optional AffinityGroup affinity_group = 9;

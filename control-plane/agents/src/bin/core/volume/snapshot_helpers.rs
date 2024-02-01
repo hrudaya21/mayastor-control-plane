@@ -114,7 +114,7 @@ pub(crate) async fn snapshoteable_replica(
     }
 
     if children.candidates().len() != volume.num_replicas as usize {
-        return Err(SvcError::AllReplicaNotHealthy {
+        return Err(SvcError::InsufficientHealthyReplicas {
             id: volume.uuid_str(),
         });
     }

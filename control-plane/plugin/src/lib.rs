@@ -4,8 +4,7 @@ extern crate prettytable;
 extern crate lazy_static;
 
 use operations::Label;
-use resources::LabelResources;
-use resources::SetResources;
+use resources::{LabelResources, SetResources};
 
 use crate::{
     operations::{

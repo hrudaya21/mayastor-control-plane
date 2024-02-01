@@ -213,7 +213,7 @@ impl Set for Volume {
                 }
                 OutputFormat::None => {
                     // In case the output format is not specified, show a success message.
-                    println!("Volume {id} max_snapshots set to {prop_value} successfully 🚀")
+                    println!("Volume {id} max_snapshots set to {prop_value} successfully")
                 }
             },
             Err(e) => {

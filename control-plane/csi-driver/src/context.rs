@@ -366,7 +366,7 @@ impl TryFrom<&HashMap<String, String>> for CreateParams {
 
         let max_snapshots = Parameters::max_snapshots(args.get(Parameters::MaxSnapshots.as_ref()))
             .map_err(|_| {
-                tonic::Status::invalid_argument("Invalid `maxSnapshots` value, expected an i32")
+                tonic::Status::invalid_argument("Invalid `maxSnapshots` value, expected an u32")
             })?;
 
         Ok(Self {

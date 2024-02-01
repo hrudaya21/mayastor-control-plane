@@ -339,10 +339,9 @@ pub enum SvcError {
     ReplicaSnapSkipped { replica: String },
     #[snafu(display("Replica's {} snapshot was unexpectedly not taken", replica))]
     ReplicaSnapMiss { replica: String },
-    #[snafu(display("Replica's {} snapshot failed with error {}", replica, error))]
+    #[snafu(display("Snapshot failed for replicas {:?}", failed_replicas))]
     ReplicaSnapError {
-        replica: String,
-        error: nix::errno::Errno,
+        failed_replicas: Vec<(String, nix::errno::Errno)>,
     },
     #[snafu(display("The service is busy, cannot process request"))]
     ServiceBusy {},
@@ -376,13 +375,13 @@ pub enum SvcError {
         cluster_capacity_limit: u64,
         excess: u64,
     },
-    #[snafu(display("All replicas are not healthy for volume '{}'", id))]
-    AllReplicaNotHealthy { id: String },
     #[snafu(display(
-        "Reached maximum snapshots limit {} for volume {}, delete unused snapshots to continue",
-        max_snapshots,
-        volume_id
+        "The number of healthy replicas does not match the expected count for volume '{}'",
+        id
     ))]
+    InsufficientHealthyReplicas { id: String },
+    #[snafu(display(
+        "Reached maximum snapshots limit {max_snapshots} for volume {volume_id}, delete unused snapshots to continue"))]
     SnapshotMaxLimit {
         max_snapshots: u32,
         volume_id: String,
@@ -1031,20 +1030,20 @@ impl From<SvcError> for ReplyError {
                 source,
                 extra,
             },
-            SvcError::AllReplicaNotHealthy { .. } => ReplyError {
+            SvcError::InsufficientHealthyReplicas { .. } => ReplyError {
                 kind: ReplyErrorKind::FailedPrecondition,
                 resource: ResourceKind::VolumeSnapshot,
                 source,
                 extra,
             },
             SvcError::SnapshotMaxLimit { .. } => ReplyError {
-                kind: ReplyErrorKind::FailedPrecondition,
+                kind: ReplyErrorKind::ResourceExhausted,
                 resource: ResourceKind::Volume,
                 source,
                 extra,
             },
             SvcError::InvalidSetProperty { .. } => ReplyError {
-                kind: ReplyErrorKind::FailedPrecondition,
+                kind: ReplyErrorKind::InvalidArgument,
                 resource: ResourceKind::Volume,
                 source,
                 extra,

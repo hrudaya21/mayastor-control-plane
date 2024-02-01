@@ -181,7 +181,7 @@ impl ResourceLifecycleWithLifetime for OperationGuardArc<VolumeSnapshot> {
         // Try to prune 1 stale transaction, if present..
         snapshot.prune(registry, Some(1)).await.ok();
 
-        let prepare_snapshot = snapshot.snapshot_params(&replicas)?;
+        let mut prepare_snapshot = snapshot.snapshot_params(&replicas)?;
         snapshot
             .start_create_update(
                 registry,
@@ -198,7 +198,7 @@ impl ResourceLifecycleWithLifetime for OperationGuardArc<VolumeSnapshot> {
             .await?;
 
         let result = snapshot
-            .snapshot(volume, &prepare_snapshot, registry, target_node)
+            .snapshot(volume, &mut prepare_snapshot, registry, target_node)
             .await;
         if let Ok(ref result) = result {
             *prepare_snapshot.completer.lock().unwrap() = Some(result.clone());
@@ -330,13 +330,17 @@ impl OperationGuardArc<VolumeSnapshot> {
     async fn snapshot<N: NexusSnapshotApi + ReplicaSnapshotApi>(
         &self,
         volume: &OperationGuardArc<VolumeSpec>,
-        prep_params: &PrepareVolumeSnapshot,
+        prep_params: &mut PrepareVolumeSnapshot,
         registry: &Registry,
         target_node: Option<N>,
     ) -> Result<VolumeSnapshotCreateResult, SvcError> {
         if let Some(target) = volume.as_ref().target() {
-            self.snapshot_nexus(prep_params, target, registry, target_node.unwrap())
-                .await
+            if let Some(target_node) = target_node {
+                self.snapshot_nexus::<N>(prep_params, target, registry, target_node)
+                    .await
+            } else {
+                Err(SvcError::InvalidArguments {})
+            }
         } else {
             self.snapshot_replica::<N>(prep_params, registry).await
         }
@@ -344,7 +348,7 @@ impl OperationGuardArc<VolumeSnapshot> {
 
     async fn snapshot_nexus<N: NexusSnapshotApi>(
         &self,
-        prep_params: &PrepareVolumeSnapshot,
+        prep_params: &mut PrepareVolumeSnapshot,
         target: &VolumeTarget,
         registry: &Registry,
         target_node: N,
@@ -377,20 +381,23 @@ impl OperationGuardArc<VolumeSnapshot> {
                     .join(", "),
             });
         }
-        if let Some(snap) = response
+        let failed_replicas = response
             .replicas_status
             .iter()
-            .find(|&snap| snap.error.is_some())
-        {
+            .filter(|&snap| snap.error.is_some())
+            .collect::<Vec<_>>();
+        if !failed_replicas.is_empty() {
             return Err(SvcError::ReplicaSnapError {
-                replica: snap.replica_uuid.to_string(),
-                error: snap.error.unwrap(),
+                failed_replicas: failed_replicas
+                    .iter()
+                    .map(|&snap| (snap.replica_uuid.to_string(), snap.error.unwrap()))
+                    .collect::<Vec<_>>(),
             });
         }
         let timestamp = DateTime::<Utc>::from(response.snap_time);
         // What if snapshot succeeds but we can't fetch the replica snapshot, should we carry
         // on as following, or should we bail out?
-        for (replica, replica_snap) in prep_params.replica_snapshot.clone().iter_mut() {
+        for (replica, replica_snap) in prep_params.replica_snapshot.iter_mut() {
             let node = registry.node_wrapper(&replica.node).await?;
             let snapshot = NodeWrapper::fetch_update_snapshot_state(
                 &node,
@@ -410,19 +417,20 @@ impl OperationGuardArc<VolumeSnapshot> {
         let snapshots = prep_params
             .replica_snapshot
             .iter()
-            .map(|(_, snapshot)| snapshot.clone())
+            .map(|(_, replica_snapshot)| replica_snapshot.clone())
             .collect::<Vec<_>>();
         Ok(VolumeSnapshotCreateResult::new_ok(snapshots, timestamp))
     }
+
     async fn snapshot_replica<N: ReplicaSnapshotApi>(
         &self,
-        prep_params: &PrepareVolumeSnapshot,
+        prep_params: &mut PrepareVolumeSnapshot,
         registry: &Registry,
     ) -> Result<VolumeSnapshotCreateResult, SvcError> {
         let volume_params = prep_params.parameters.params().clone();
         let mut timestamp = SystemTime::now();
 
-        for (replica, replica_snap) in prep_params.replica_snapshot.clone().iter_mut() {
+        for (replica, replica_snap) in prep_params.replica_snapshot.iter_mut() {
             let replica_params = volume_params.clone().with_uuid(replica_snap.spec().uuid());
             let target_node = registry.node_wrapper(&replica.node).await?;
             let response = target_node
@@ -443,7 +451,7 @@ impl OperationGuardArc<VolumeSnapshot> {
             prep_params
                 .replica_snapshot
                 .iter()
-                .map(|(_, snapshot)| snapshot.clone())
+                .map(|(_, replica_snapshot)| replica_snapshot.clone())
                 .collect::<Vec<_>>(),
             timestamp.into(),
         ))
