@@ -31,8 +31,7 @@ impl crate::controller::io_engine::ReplicaListApi for super::RpcClient {
                 poolname: None,
                 uuid: None,
                 pooluuid: None,
-                query: Some(replicas_except_snapshots_query),
-                //pooltypes: vec![],
+                query: Some(replicas_except_snapshots_query), pooltypes: vec![],
             })
             .await
             .context(GrpcRequestError {
@@ -65,7 +64,7 @@ impl crate::controller::io_engine::ReplicaListApi for super::RpcClient {
                 uuid: Some(replica_id.to_string()),
                 pooluuid: None,
                 query: None,
-                //pooltypes: vec![],
+                pooltypes: vec![],
             })
             .await
             .context(GrpcRequestError {
