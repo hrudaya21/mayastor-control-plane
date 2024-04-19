@@ -86,9 +86,9 @@ impl From<models::CreatePoolBody> for CreatePoolBody {
             labels: src.labels,
             encryption: src.encryption.map(|e| Encryption {
                 cipher: e.cipher,
-                hex_key1: "".to_string(),
-                hex_key2: "".to_string(),
-                key_name: "".to_string(),
+                hex_key1: e.hex_key1,
+                hex_key2: e.hex_key2,
+                key_name: e.key_name,
             }),
         }
     }
