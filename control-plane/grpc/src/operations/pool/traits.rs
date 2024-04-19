@@ -11,8 +11,8 @@ use stor_port::{
         store::pool::{PoolLabel, PoolSpec, PoolSpecStatus},
         transport,
         transport::{
-            CreatePool, CtrlPoolState, DestroyPool, Filter, NodeId, Pool, PoolDeviceUri, PoolId,
-            PoolState,
+            CreatePool, CtrlPoolState, DestroyPool, Encryption, Filter, NodeId, Pool,
+            PoolDeviceUri, PoolId, PoolState,
         },
     },
     IntoOption,
@@ -230,6 +230,8 @@ pub trait CreatePoolInfo: Send + Sync + std::fmt::Debug {
     fn disks(&self) -> Vec<PoolDeviceUri>;
     /// Labels to be set on the pool
     fn labels(&self) -> Option<PoolLabel>;
+    ///
+    fn encryption(&self) -> Option<Encryption>;
 }
 
 /// DestroyPoolInfo trait for the pool deletion to be implemented by entities which want to avail
@@ -257,6 +259,10 @@ impl CreatePoolInfo for CreatePool {
     fn labels(&self) -> Option<PoolLabel> {
         self.labels.clone()
     }
+
+    fn encryption(&self) -> Option<Encryption> {
+        self.encryption.clone()
+    }
 }
 
 impl CreatePoolInfo for CreatePoolRequest {
@@ -278,6 +284,15 @@ impl CreatePoolInfo for CreatePoolRequest {
             Some(labels) => Some(labels.value),
         }
     }
+
+    fn encryption(&self) -> Option<Encryption> {
+        self.encryption.clone().map(|e| Encryption {
+            cipher: e.cipher,
+            hex_key1: e.hex_key1,
+            hex_key2: e.hex_key2,
+            key_name: e.key_name,
+        })
+    }
 }
 
 impl From<&dyn CreatePoolInfo> for CreatePoolRequest {
@@ -289,6 +304,12 @@ impl From<&dyn CreatePoolInfo> for CreatePoolRequest {
             labels: data
                 .labels()
                 .map(|labels| crate::common::StringMapValue { value: labels }),
+            encryption: data.encryption().map(|e| pool::Encryption {
+                cipher: e.cipher,
+                hex_key1: e.hex_key1,
+                hex_key2: e.hex_key2,
+                key_name: e.key_name,
+            }),
         }
     }
 }
@@ -300,6 +321,7 @@ impl From<&dyn CreatePoolInfo> for CreatePool {
             id: data.pool_id(),
             disks: data.disks(),
             labels: data.labels(),
+            encryption: data.encryption(),
         }
     }
 }

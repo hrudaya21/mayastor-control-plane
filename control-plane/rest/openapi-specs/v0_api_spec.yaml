@@ -2398,8 +2398,37 @@ components:
           type: object
           additionalProperties:
             type: string
+        encryption:
+          $ref: '#/components/schemas/Encryption'
       required:
         - disks
+    Encryption:
+      example:
+        cipher: "AES_XTS"
+        hex_key1: "00112233445566778899aabbccddeeff"
+        hex_key2: "ffeeddccbbaa99887766554433221100"
+        key_name: "openebs_encryption_key"
+      description: |-
+        Encryption parameters
+      type: object
+      properties:
+        cipher:
+          type: string
+          description: Encryption Algorithm
+        hex_key1:
+          type: string
+          description: Hex key
+        hex_key2:
+          type: string
+          description: Hex key
+        key_name:
+          type: string
+          description: Key name
+      required:
+        - cipher
+        - hex_key1
+        - hex_key2
+        - key_name
     HostNqn:
       example: nqn.2014-08.org.nvmexpress:uuid:804b1e8c-b42d-4d15-92b4-7c4e4d0f507
       description: |-

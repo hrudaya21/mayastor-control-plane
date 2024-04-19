@@ -33,6 +33,8 @@ use stor_port::{
 };
 
 use std::fmt::Debug;
+use stor_port::types::v0::transport::Encryption;
+
 /// Create Replica Body JSON.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct CreateReplicaBody {
@@ -74,12 +76,20 @@ pub struct CreatePoolBody {
     pub disks: Vec<PoolDeviceUri>,
     /// labels to be set on the pool
     pub labels: Option<PoolLabel>,
+    ///
+    pub encryption: Option<Encryption>,
 }
 impl From<models::CreatePoolBody> for CreatePoolBody {
     fn from(src: models::CreatePoolBody) -> Self {
         Self {
             disks: src.disks.iter().cloned().map(From::from).collect(),
             labels: src.labels,
+            encryption: src.encryption.map(|e| Encryption {
+                cipher: e.cipher,
+                hex_key1: "".to_string(),
+                hex_key2: "".to_string(),
+                key_name: "".to_string(),
+            }),
         }
     }
 }
@@ -88,6 +98,7 @@ impl From<CreatePool> for CreatePoolBody {
         CreatePoolBody {
             disks: create.disks,
             labels: create.labels,
+            encryption: create.encryption,
         }
     }
 }
@@ -99,6 +110,7 @@ impl CreatePoolBody {
             id: pool_id,
             disks: self.disks.clone(),
             labels: self.labels.clone(),
+            encryption: self.encryption.clone(),
         }
     }
 }

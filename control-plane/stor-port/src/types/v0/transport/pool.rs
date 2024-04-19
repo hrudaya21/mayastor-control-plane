@@ -286,6 +286,16 @@ pub struct CreatePool {
     pub disks: Vec<PoolDeviceUri>,
     /// Labels to be set on the pool.
     pub labels: Option<PoolLabel>,
+    /// Encryption
+    pub encryption: Option<Encryption>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Eq, PartialEq)]
+pub struct Encryption {
+    pub cipher: String,
+    pub hex_key1: String,
+    pub hex_key2: String,
+    pub key_name: String,
 }
 
 impl CreatePool {
@@ -295,12 +305,14 @@ impl CreatePool {
         id: &PoolId,
         disks: &[PoolDeviceUri],
         labels: &Option<PoolLabel>,
+        encryption: &Option<Encryption>,
     ) -> Self {
         Self {
             node: node.clone(),
             id: id.clone(),
             disks: disks.to_vec(),
             labels: labels.clone(),
+            encryption: encryption.clone(),
         }
     }
 }

@@ -1014,6 +1014,7 @@ impl ClusterBuilder {
                         id: pool.id(),
                         disks: vec![pool.disk()],
                         labels: None,
+                        encryption: None,
                     },
                     None,
                 )

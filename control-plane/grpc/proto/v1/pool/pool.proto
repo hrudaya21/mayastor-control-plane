@@ -97,6 +97,20 @@ message CreatePoolRequest {
   repeated string disks = 3;
   // labels to be set on the pool
   optional common.StringMapValue labels = 5;
+  // HACK: Encryption params, if none pool will be created without encryption.
+  optional Encryption encryption = 6;
+}
+
+// HACK: structure for encryption.
+message Encryption {
+  // Encryption algorithm.
+  string cipher = 1;
+  // Encryption key one.
+  string hex_key1 = 2;
+  // Encyrption key two.
+  string hex_key2 = 3;
+  // Key name.
+  string key_name = 4;
 }
 
 // Destroy Pool Request

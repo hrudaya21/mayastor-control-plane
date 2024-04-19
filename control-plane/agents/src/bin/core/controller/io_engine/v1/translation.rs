@@ -278,6 +278,7 @@ impl AgentToIoEngine for transport::CreateReplica {
             size: self.size,
             share: self.share as i32,
             allowed_hosts: self.allowed_hosts.clone().into_vec(),
+            encryption: true,
         }
     }
 }
@@ -673,6 +674,12 @@ impl AgentToIoEngine for transport::CreatePool {
             uuid: None,
             pooltype: v1::pool::PoolType::Lvs as i32,
             cluster_size: None,
+            encryption: self.encryption.clone().map(|e| v1::pool::Encryption {
+                cipher: e.cipher,
+                hex_key1: e.hex_key1,
+                hex_key2: e.hex_key2,
+                key_name: e.key_name,
+            }),
         }
     }
 }
