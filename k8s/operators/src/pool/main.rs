@@ -304,7 +304,7 @@ pub(crate) async fn migrate_and_clean_msps(k8s: &Client, namespace: &str) -> Res
                         k8s,
                         namespace,
                         &name,
-                        DiskPoolSpec::new(node, disks, None),
+                        DiskPoolSpec::new(node, disks, None, None),
                     )
                     .await
                     {

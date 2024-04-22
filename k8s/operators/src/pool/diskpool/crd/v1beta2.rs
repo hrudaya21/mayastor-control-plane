@@ -34,6 +34,8 @@ pub struct DiskPoolSpec {
     disks: Vec<String>,
     /// The topology for data placement.
     topology: Option<Topology>,
+    /// k8s secret for encrypted pool
+    encryption_secret: Option<String>,
 }
 
 /// Placement pool topology used by volume operations.
@@ -46,11 +48,17 @@ pub struct Topology {
 
 impl DiskPoolSpec {
     /// Create a new DiskPoolSpec from the node and the disks.
-    pub fn new(node: String, disks: Vec<String>, topology: Option<Topology>) -> Self {
+    pub fn new(
+        node: String,
+        disks: Vec<String>,
+        topology: Option<Topology>,
+        encryption_secret: Option<String>,
+    ) -> Self {
         Self {
             node,
             disks,
             topology,
+            encryption_secret,
         }
     }
     /// The node the pool is placed on.
@@ -65,6 +73,12 @@ impl DiskPoolSpec {
     /// The topology that decides replica placement.
     pub fn topology(&self) -> Option<Topology> {
         self.topology.clone()
+    }
+
+    /// The secret used for encrypted pool.
+    /// This is optional and only used when pool is encrypted.
+    pub fn encryption_secret(&self) -> Option<String> {
+        self.encryption_secret.clone()
     }
 }
 

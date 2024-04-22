@@ -86,7 +86,7 @@ pub(crate) async fn create_missing_cr(
                     if let Some(spec) = &pool.spec {
                         warn!(pool.id, spec.node, "DiskPool CR is missing");
                         let cr_spec: DiskPoolSpec =
-                            DiskPoolSpec::new(spec.node.clone(), spec.disks.clone(), None);
+                            DiskPoolSpec::new(spec.node.clone(), spec.disks.clone(), None, None);
                         let new_disk_pool: DiskPool = DiskPool::new(&pool.id, cr_spec);
                         if let Err(error) = pools_api.create(&param, &new_disk_pool).await {
                             info!(pool.id, spec.node, %error, "Failed to create CR for missing DiskPool");

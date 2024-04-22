@@ -266,28 +266,34 @@ impl ResourceContext {
             }
         }
 
-        let client = self.ctx.k8s.clone();
-        let namespace = self.namespace().expect("must be namespaced");
-        let secret_name = "encrytion_secret";
-        // Create an API object for accessing secrets
-        let secrets: Api<Secret> = Api::namespaced(client.clone(), &namespace);
-        // Retrieve the secret from the Kubernetes cluster
-        let secret = secrets.get(secret_name).await?;
-        let secret_data = secret.data.unwrap();
+        let encryption_secret: Option<Encryption> = match self.spec.encryption_secret() {
+            Some(secret_name) => {
+                println!("Ashish Kumar Sinha: {}", secret_name);
+                let client = self.ctx.k8s.clone();
+                let namespace = self.namespace().expect("must be namespaced");
 
-        let cipher = secret_data.get("cipher").unwrap().to_owned();
-        let hex_key1 = secret_data.get("hex_key1").unwrap().to_owned();
-        let hex_key2 = secret_data.get("hex_key2").unwrap().to_owned();
-        let key_name = secret_data.get("key_name").unwrap().to_owned();
+                // Create an API object for accessing secrets
+                let secrets: Api<Secret> = Api::namespaced(client.clone(), &namespace);
+                // Retrieve the secret from the Kubernetes cluster
+                let secret = secrets.get(secret_name.as_str()).await?;
+                let secret_data = secret.data.unwrap();
 
-        let encryption = Encryption::new(
-            String::from_utf8(cipher.0).unwrap(),
-            String::from_utf8(hex_key1.0).unwrap(),
-            String::from_utf8(hex_key2.0).unwrap(),
-            String::from_utf8(key_name.0).unwrap(),
-        );
+                let cipher = secret_data.get("cipher").unwrap().to_owned();
+                let hex_key1 = secret_data.get("hex_key1").unwrap().to_owned();
+                let hex_key2 = secret_data.get("hex_key2").unwrap().to_owned();
+                let key_name = secret_data.get("key_name").unwrap().to_owned();
 
-        let body = CreatePoolBody::new_all(self.spec.disks(), labels, Some(encryption));
+                Some(Encryption::new(
+                    String::from_utf8(cipher.0).unwrap(),
+                    String::from_utf8(hex_key1.0).unwrap(),
+                    String::from_utf8(hex_key2.0).unwrap(),
+                    String::from_utf8(key_name.0).unwrap(),
+                ))
+            }
+            None => None,
+        };
+
+        let body = CreatePoolBody::new_all(self.spec.disks(), labels, encryption_secret);
         match self
             .pools_api()
             .put_node_pool(&self.spec.node(), &self.name_any(), body)
