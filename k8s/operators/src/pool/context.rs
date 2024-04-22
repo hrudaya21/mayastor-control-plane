@@ -2,7 +2,10 @@ use super::{
     diskpool::crd::v1beta2::{CrPoolState, DiskPool, DiskPoolStatus},
     error::Error,
 };
-use k8s_openapi::{api::core::v1::Event, apimachinery::pkg::apis::meta::v1::MicroTime};
+use k8s_openapi::{
+    api::core::v1::{Event, Secret},
+    apimachinery::pkg::apis::meta::v1::MicroTime,
+};
 use kube::{
     api::{Api, ObjectMeta, PatchParams},
     runtime::{controller::Action, finalizer},
@@ -11,7 +14,7 @@ use kube::{
 use openapi::{
     apis::StatusCode,
     clients,
-    models::{CreatePoolBody, Pool},
+    models::{CreatePoolBody, Encryption, Pool},
 };
 
 use super::{normalize_disk, v1beta2_api};
@@ -263,7 +266,28 @@ impl ResourceContext {
             }
         }
 
-        let body = CreatePoolBody::new_all(self.spec.disks(), labels, None);
+        let client = self.ctx.k8s.clone();
+        let namespace = self.namespace().expect("must be namespaced");
+        let secret_name = "encrytion_secret";
+        // Create an API object for accessing secrets
+        let secrets: Api<Secret> = Api::namespaced(client.clone(), &namespace);
+        // Retrieve the secret from the Kubernetes cluster
+        let secret = secrets.get(secret_name).await?;
+        let secret_data = secret.data.unwrap();
+
+        let cipher = secret_data.get("cipher").unwrap().to_owned();
+        let hex_key1 = secret_data.get("hex_key1").unwrap().to_owned();
+        let hex_key2 = secret_data.get("hex_key2").unwrap().to_owned();
+        let key_name = secret_data.get("key_name").unwrap().to_owned();
+
+        let encryption = Encryption::new(
+            String::from_utf8(cipher.0).unwrap(),
+            String::from_utf8(hex_key1.0).unwrap(),
+            String::from_utf8(hex_key2.0).unwrap(),
+            String::from_utf8(key_name.0).unwrap(),
+        );
+
+        let body = CreatePoolBody::new_all(self.spec.disks(), labels, Some(encryption));
         match self
             .pools_api()
             .put_node_pool(&self.spec.node(), &self.name_any(), body)
